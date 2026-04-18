@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Equidad Carpool - Producción</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            light: '#f8fafc',
+                            dark: '#020617',
+                            accent: '#10b981'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Chosen Palette: Warm Neutrals & Deep Slate. Contraste optimizado para exteriores y noche. -->
+    <!-- Application Structure Plan: SPA con arquitectura de persistencia local. 
+         Se organiza en: 1. Ranking de prioridad (toma de decisiones), 2. Registro de ciclo (acción principal), 
+         3. Gestión de miembros (administración) y 4. Historial (auditoría). 
+         Diseñado con una jerarquía visual clara para uso rápido en móviles. -->
+    <!-- Visualization & Content Choices: 
+         - Lista de prioridad ordenada: Reemplaza gráficos para facilitar la lectura en móviles bajo luz solar.
+         - Modales tipo "Sheet": Se deslizan desde abajo en móviles para mejor ergonomía.
+         - Notificaciones Toast: Feedback inmediato sin interrumpir el flujo.
+         - LocalStorage: Persistencia total de datos sin base de datos externa. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. Iconografía mediante Unicode. -->
+
+    <style>
+        input[type="number"]::-webkit-inner-spin-button, 
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        
+        .table-container::-webkit-scrollbar { height: 4px; }
+        .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .dark .table-container::-webkit-scrollbar-thumb { background: #334155; }
+        
+        @keyframes slideUp {
+            from { transform: translate(-50%, 100%); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+        .animate-toast { animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        select, button, input[type="checkbox"] { min-height: 48px; }
+        
+        .checkbox-card {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            border-radius: 1.25rem;
+            transition: all 0.2s;
+            user-select: none;
+            border: 2px solid transparent;
+        }
+        
+        .checkbox-card:active { transform: scale(0.97); }
+
+        input[type="text"], input[type="number"], select { font-size: 16px !important; }
+        
+        .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 font-sans min-h-screen transition-colors duration-500">
+
+    <div class="max-w-xl mx-auto px-4 py-6 sm:py-10 safe-area-bottom">
+        
+        <!-- HEADER -->
+        <header class="mb-8 flex justify-between items-center bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800">
+            <div>
+                <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">Carpool<span class="text-emerald-500">Equity</span></h1>
+                <p class="text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-widest">Control de Ciclos 3/5</p>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button onclick="toggleDarkMode()" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-slate-50 dark:bg-slate-800 text-xl border border-slate-100 dark:border-slate-700 transition-transform active:scale-90">
+                    <span id="themeIcon">🌙</span>
+                </button>
+                <button onclick="toggleModal('userModal')" class="w-12 h-12 flex items-center justify-center bg-slate-900 dark:bg-emerald-600 text-white rounded-2xl shadow-lg active:scale-90 transition-transform font-bold">
+                    +
+                </button>
+            </div>
+        </header>
+
+        <main class="space-y-6">
+
+            <!-- PRIORIDAD -->
+            <section class="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+                <h2 class="text-sm font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 flex items-center">
+                    <span class="mr-2 italic text-emerald-500">#</span> Prioridad Conducción
+                </h2>
+                <div id="equityRanking" class="space-y-3">
+                    <!-- JS -->
+                </div>
+            </section>
+
+            <!-- REGISTRO -->
+            <section class="bg-slate-900 dark:bg-black text-white p-8 rounded-[3rem] shadow-2xl relative overflow-hidden">
+                <div class="absolute -top-10 -left-10 opacity-10 text-[10rem] pointer-events-none">🚗</div>
+                <div class="relative z-10">
+                    <h2 class="text-xl font-black mb-1">Registrar Ciclo</h2>
+                    <p class="text-slate-500 text-[10px] mb-8 uppercase font-black tracking-tighter">Resumen del último bloque de 3 días</p>
+                    
+                    <div class="space-y-8">
+                        <div>
+                            <label class="block text-[10px] uppercase tracking-widest text-emerald-400 font-black mb-4">🟢 Condujeron este ciclo</label>
+                            <div id="driversChecklist" class="grid grid-cols-1 gap-2"></div>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase tracking-widest text-sky-400 font-black mb-4">🔵 Libraron este ciclo</label>
+                            <div id="passengersChecklist" class="grid grid-cols-1 gap-2"></div>
+                        </div>
+                    </div>
+
+                    <button onclick="saveCycle()" class="w-full mt-10 bg-emerald-500 hover:bg-emerald-400 text-slate-950 py-5 rounded-[1.5rem] font-black transition active:scale-[0.98] shadow-2xl shadow-emerald-500/20 uppercase tracking-widest text-sm">
+                        Confirmar Datos
+                    </button>
+                </div>
+            </section>
+
+            <!-- GESTIÓN -->
+            <section class="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
+                <h2 class="text-sm font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 italic">Gestión de Grupo</h2>
+                <div class="table-container overflow-x-auto">
+                    <table class="w-full text-sm text-left border-collapse min-w-[400px]">
+                        <thead class="text-[10px] uppercase font-black text-slate-400">
+                            <tr>
+                                <th class="pb-4">Nombre</th>
+                                <th class="pb-4 text-center">Viajes</th>
+                                <th class="pb-4 text-center">Libras</th>
+                                <th class="pb-4 text-center">Estado</th>
+                                <th class="pb-4 text-right">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="membersTable" class="divide-y divide-slate-50 dark:divide-slate-800"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- HISTORIAL -->
+            <section class="pb-10">
+                <h2 class="text-sm font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 italic">Historial</h2>
+                <div id="historyList" class="space-y-3"></div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- MODALES -->
+    <div id="userModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
+        <div class="bg-white dark:bg-slate-900 rounded-t-[3rem] sm:rounded-[2.5rem] p-10 w-full max-w-md shadow-2xl">
+            <h3 id="modalTitle" class="text-2xl font-black mb-8 dark:text-white tracking-tighter">Compañero</h3>
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nombre del titular</label>
+                    <input type="text" id="userNameInput" placeholder="Ej: Mario" class="w-full p-5 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl outline-none dark:text-white font-bold">
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Viajes</label>
+                        <input type="number" id="userDrivesInput" value="0" class="w-full p-5 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl outline-none dark:text-white font-mono font-bold text-center">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Libranzas</label>
+                        <input type="number" id="userLibsInput" value="0" class="w-full p-5 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl outline-none dark:text-white font-mono font-bold text-center">
+                    </div>
+                </div>
+            </div>
+            <div class="mt-10 flex gap-3">
+                <button onclick="toggleModal('userModal')" class="flex-1 py-5 text-xs font-black text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-2xl uppercase tracking-widest">Cerrar</button>
+                <button id="saveUserBtn" onclick="addUser()" class="flex-1 py-5 text-xs font-black text-white bg-emerald-500 rounded-2xl shadow-xl shadow-emerald-500/20 uppercase tracking-widest">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="deleteModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6 z-50">
+        <div class="bg-white dark:bg-slate-900 rounded-[3rem] p-10 w-full max-w-xs shadow-2xl text-center">
+            <div class="w-20 h-20 bg-rose-100 dark:bg-rose-900/30 text-rose-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-6">🗑️</div>
+            <h3 class="text-xl font-black dark:text-white tracking-tighter">¿Eliminar miembro?</h3>
+            <p id="deleteMsg" class="text-xs text-slate-400 mt-3 mb-10 leading-relaxed font-medium">Se perderán todos los datos de balance del compañero seleccionado.</p>
+            <div class="flex flex-col gap-3">
+                <button onclick="executeDelete()" class="w-full py-5 text-xs font-black text-white bg-rose-600 rounded-2xl shadow-xl shadow-rose-600/20 uppercase tracking-widest">Eliminar ahora</button>
+                <button onclick="toggleModal('deleteModal')" class="w-full py-5 text-xs font-black text-slate-400 bg-slate-50 dark:bg-slate-800 rounded-2xl uppercase tracking-widest">Volver</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST -->
+    <div id="toast" class="hidden fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-5 rounded-[2rem] shadow-2xl z-[100] animate-toast flex items-center gap-4 w-[90%] max-w-xs border border-white/10">
+        <span id="toastIcon">✅</span>
+        <span id="toastMsg" class="text-xs font-black uppercase tracking-widest truncate">Listo</span>
+    </div>
+
+    <script>
+        let appState = {
+            members: [
+                { id: 1, name: "Carlos", drives: 0, libranzas: 0, status: "Activo" },
+                { id: 2, name: "Marta", drives: 0, libranzas: 0, status: "Activo" },
+                { id: 3, name: "Joan", drives: 0, libranzas: 0, status: "Activo" },
+                { id: 4, name: "Elena", drives: 0, libranzas: 0, status: "Activo" },
+                { id: 5, name: "Luis", drives: 0, libranzas: 0, status: "Activo" },
+                { id: 6, name: "Sonia", drives: 0, libranzas: 0, status: "Activo" },
+                { id: 7, name: "Dani", drives: 0, libranzas: 0, status: "Activo" },
+                { id: 8, name: "Bea", drives: 0, libranzas: 0, status: "Activo" }
+            ],
+            history: [],
+            isDark: false,
+            editingId: null,
+            idToDelete: null
+        };
+
+        function loadData() {
+            const saved = localStorage.getItem('carpool_pro_v1');
+            if (saved) {
+                appState = JSON.parse(saved);
+                if (appState.isDark) {
+                    document.documentElement.classList.add('dark');
+                    document.getElementById('themeIcon').innerText = '☀️';
+                }
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('carpool_pro_v1', JSON.stringify(appState));
+        }
+
+        function init() {
+            loadData();
+            renderAll();
+        }
+
+        function toggleDarkMode() {
+            appState.isDark = !appState.isDark;
+            document.documentElement.classList.toggle('dark');
+            document.getElementById('themeIcon').innerText = appState.isDark ? '☀️' : '🌙';
+            saveData();
+            showToast(appState.isDark ? "Modo Noche" : "Modo Día", appState.isDark ? '🌙' : '☀️');
+        }
+
+        function renderAll() {
+            renderRanking();
+            renderChecklists();
+            renderTable();
+            renderHistory();
+        }
+
+        function toggleModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.toggle('hidden');
+            if (id === 'userModal' && modal.classList.contains('hidden')) {
+                appState.editingId = null;
+                document.getElementById('userNameInput').value = '';
+                document.getElementById('userDrivesInput').value = 0;
+                document.getElementById('userLibsInput').value = 0;
+                document.getElementById('modalTitle').innerText = 'Nuevo Miembro';
+                document.getElementById('saveUserBtn').onclick = addUser;
+            }
+        }
+
+        function showToast(msg, icon = '✅') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            document.getElementById('toastIcon').innerText = icon;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        function renderRanking() {
+            const container = document.getElementById('equityRanking');
+            container.innerHTML = '';
+            const sorted = [...appState.members]
+                .filter(m => m.status === 'Activo')
+                .sort((a, b) => a.drives - b.drives);
+
+            sorted.forEach((m, idx) => {
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between p-5 bg-slate-50 dark:bg-slate-800/30 rounded-3xl border border-slate-100 dark:border-slate-800 transition-all";
+                div.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <span class="w-8 h-8 flex items-center justify-center bg-white dark:bg-slate-800 text-[10px] font-black rounded-xl text-slate-300 dark:text-slate-600 shadow-sm">${idx + 1}</span>
+                        <span class="font-black text-slate-800 dark:text-slate-100 tracking-tight">${m.name}</span>
+                    </div>
+                    <div class="bg-white dark:bg-slate-900 px-4 py-2 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                        <span class="text-sm font-black text-emerald-500">${m.drives}</span>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function renderChecklists() {
+            const dList = document.getElementById('driversChecklist');
+            const pList = document.getElementById('passengersChecklist');
+            dList.innerHTML = ''; pList.innerHTML = '';
+            const active = appState.members.filter(m => m.status === 'Activo');
+
+            active.forEach(m => {
+                const itemD = document.createElement('label');
+                itemD.className = "checkbox-card bg-slate-800 border-slate-700 active:bg-emerald-900/20 active:border-emerald-500 cursor-pointer";
+                itemD.innerHTML = `<input type="checkbox" name="drv" value="${m.id}" class="w-6 h-6 mr-4 accent-emerald-500 rounded-lg"> <span class="text-sm font-bold text-slate-300 tracking-tight">${m.name}</span>`;
+                dList.appendChild(itemD);
+
+                const itemP = document.createElement('label');
+                itemP.className = "checkbox-card bg-slate-800 border-slate-700 active:bg-sky-900/20 active:border-sky-500 cursor-pointer";
+                itemP.innerHTML = `<input type="checkbox" name="pas" value="${m.id}" class="w-6 h-6 mr-4 accent-sky-500 rounded-lg"> <span class="text-sm font-bold text-slate-300 tracking-tight">${m.name}</span>`;
+                pList.appendChild(itemP);
+            });
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('membersTable');
+            tbody.innerHTML = '';
+            appState.members.forEach(m => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors";
+                tr.innerHTML = `
+                    <td class="py-5 font-black text-slate-900 dark:text-white tracking-tight">${m.name}</td>
+                    <td class="py-5 text-center font-black text-emerald-500">${m.drives}</td>
+                    <td class="py-5 text-center font-black text-sky-500">${m.libranzas}</td>
+                    <td class="py-5 text-center">
+                        <select onchange="updateStatus(${m.id}, this.value)" class="text-[10px] font-black border-none bg-slate-50 dark:bg-slate-800 rounded-xl px-2 py-2 text-slate-500 uppercase outline-none">
+                            <option value="Activo" ${m.status==='Activo'?'selected':''}>Activo</option>
+                            <option value="Baja" ${m.status==='Baja'?'selected':''}>Baja</option>
+                            <option value="Fiesta" ${m.status==='Fiesta'?'selected':''}>Fiesta</option>
+                        </select>
+                    </td>
+                    <td class="py-5 text-right flex items-center justify-end gap-1">
+                        <button onclick="openEdit(${m.id})" class="p-3 text-slate-300 hover:text-emerald-500 transition text-xl">✎</button>
+                        <button onclick="deleteMember(${m.id})" class="p-3 text-rose-200 hover:text-rose-500 transition text-xl">🗑</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('historyList');
+            container.innerHTML = '';
+            if (appState.history.length === 0) {
+                container.innerHTML = '<div class="p-10 text-center text-[10px] font-black uppercase text-slate-300 tracking-widest bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">Sin historial</div>';
+                return;
+            }
+            appState.history.slice().reverse().forEach(h => {
+                const div = document.createElement('div');
+                div.className = "p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm";
+                div.innerHTML = `
+                    <span class="text-[9px] font-black text-emerald-500 uppercase block tracking-[0.2em] mb-2">${h.date}</span>
+                    <p class="text-sm font-black text-slate-800 dark:text-white tracking-tight mb-1">🚗 ${h.drivers.join(' & ')}</p>
+                    <p class="text-xs font-medium text-slate-400">Libraron: ${h.passengers.join(', ')}</p>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function addUser() {
+            const name = document.getElementById('userNameInput').value.trim();
+            const drives = parseInt(document.getElementById('userDrivesInput').value) || 0;
+            const libs = parseInt(document.getElementById('userLibsInput').value) || 0;
+            if (!name) return showToast("Falta nombre", '❌');
+            appState.members.push({ id: Date.now(), name, drives, libranzas: libs, status: "Activo" });
+            saveData(); toggleModal('userModal'); renderAll(); showToast("Guardado");
+        }
+
+        function openEdit(id) {
+            const m = appState.members.find(m => m.id === id);
+            appState.editingId = id;
+            document.getElementById('userNameInput').value = m.name;
+            document.getElementById('userDrivesInput').value = m.drives;
+            document.getElementById('userLibsInput').value = m.libranzas;
+            document.getElementById('modalTitle').innerText = 'Editar Datos';
+            document.getElementById('saveUserBtn').onclick = saveEdit;
+            toggleModal('userModal');
+        }
+
+        function saveEdit() {
+            const m = appState.members.find(m => m.id === appState.editingId);
+            if (!m) return;
+            m.name = document.getElementById('userNameInput').value.trim();
+            m.drives = parseInt(document.getElementById('userDrivesInput').value) || 0;
+            m.libranzas = parseInt(document.getElementById('userLibsInput').value) || 0;
+            saveData(); toggleModal('userModal'); renderAll(); showToast("Editado");
+        }
+
+        function deleteMember(id) {
+            const m = appState.members.find(m => m.id === id);
+            if (!m) return;
+            appState.idToDelete = id;
+            document.getElementById('deleteMsg').innerText = `¿Eliminar a ${m.name}? No podrás recuperar sus puntos.`;
+            toggleModal('deleteModal');
+        }
+
+        function executeDelete() {
+            appState.members = appState.members.filter(m => m.id !== appState.idToDelete);
+            saveData(); toggleModal('deleteModal'); appState.idToDelete = null; renderAll(); showToast("Borrado", '🗑');
+        }
+
+        function updateStatus(id, status) {
+            const m = appState.members.find(m => m.id === id);
+            if (m) m.status = status;
+            saveData(); renderAll(); showToast("Estado OK");
+        }
+
+        function saveCycle() {
+            const dIds = Array.from(document.querySelectorAll('input[name="drv"]:checked')).map(i => parseInt(i.value));
+            const pIds = Array.from(document.querySelectorAll('input[name="pas"]:checked')).map(i => parseInt(i.value));
+            if (dIds.length === 0) return showToast("¿Quién condujo?", '🚗');
+
+            dIds.forEach(id => { const m = appState.members.find(mb => mb.id === id); if (m) m.drives++; });
+            pIds.forEach(id => { const m = appState.members.find(mb => mb.id === id); if (m) m.libranzas++; });
+
+            appState.history.push({
+                date: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+                drivers: dIds.map(id => appState.members.find(m => m.id === id).name),
+                passengers: pIds.map(id => appState.members.find(m => m.id === id).name)
+            });
+
+            saveData();
+            document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+            renderAll();
+            showToast("Ciclo Guardado");
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
