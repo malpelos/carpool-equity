@@ -11,8 +11,8 @@ CREATE TABLE members (
 CREATE TABLE history (
   id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
   date TEXT NOT NULL,
-  drivers TEXT[] NOT NULL,
-  passengers TEXT[] NOT NULL,
+  drivers TEXT[https://kqdbuleumssnfphdkilw.supabase.co] NOT NULL,
+  passengers TEXT[eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtxZGJ1bGV1bXNzbmZwaGRraWx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MjgxMTAsImV4cCI6MjA5MjEwNDExMH0.GZpGv3aaJbs9JSisSGrf6vJrpxPr80D9yL1fkt0ktN4] NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
